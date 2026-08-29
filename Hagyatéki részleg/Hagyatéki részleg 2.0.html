@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hagyatéki Részleg</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="Data/styles.css">
+</head>
+<body>
+
+    <div id="app-shell">
+
+    <header class="header">
+        <div class="header-title">
+            <span class="header-dot"></span>
+            <h1>Hagyatéki Részleg</h1>
+            <span class="header-version mono">v2.0.1</span>
+        </div>
+        <div style="flex:1"></div>
+        <div id="header-file" class="header-file mono" style="display:none;">
+            <span class="dot"></span>
+            <span id="header-file-name"></span>
+        </div>
+        <button class="btn-theme" onclick="toggleTheme()">
+            <span class="mono" id="theme-label">light</span>
+        </button>
+    </header>
+
+    <div class="layout">
+
+        <aside class="sidebar">
+            <div class="sidebar-section">
+                <span class="sidebar-label">Dokumentum</span>
+                <div id="pdf-drop" class="drop-zone">
+                    <div class="drop-zone-icon mono">PDF</div>
+                    <span class="drop-zone-title">Fájl behúzása</span>
+                    <button class="btn-browse" onclick="document.getElementById('pdf-input').click()">Tallózás</button>
+                    <span class="drop-zone-hint">A típus felismerése automatikus</span>
+                    <input id="pdf-input" type="file" accept=".pdf" style="display:none">
+                </div>
+                <div id="file-info" class="file-info" style="display:none;">
+                    <span class="dot"></span>
+                    <div class="file-info-details">
+                        <span id="file-info-name" class="file-info-name mono"></span>
+                        <span id="file-info-meta" class="file-info-meta"></span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="sidebar-section" id="template-section">
+                <span class="sidebar-label">Sablon könyvtár</span>
+
+                <div id="sablon-drop" class="template-zone">
+                    <div class="template-zone-icon mono">DOCX · RTF</div>
+                    <span style="font-size:12px; font-weight:500;">Sablonok mappa behúzása</span>
+                    <span style="font-size:10.5px; color:var(--tx-faint);">egyszer kell · utána megjegyzi</span>
+                    <button class="btn-browse" onclick="document.getElementById('sablon-folder-input').click()">Tallózás</button>
+                    <input id="sablon-folder-input" type="file" webkitdirectory directory multiple style="display:none">
+                </div>
+
+                <div id="sablon-info" style="display:none; flex-direction:column; gap:8px;">
+                    <div class="file-info">
+                        <span class="dot" style="background:var(--ok);"></span>
+                        <div class="file-info-details">
+                            <span id="sablon-name" class="file-info-name mono">Sablonok</span>
+                            <span id="sablon-meta" class="file-info-meta"></span>
+                        </div>
+                    </div>
+                    <div style="display:flex; gap:6px;">
+                        <button class="btn-template" style="flex:1; height:30px;" onclick="document.getElementById('sablon-folder-input').click()">Csere</button>
+                        <button class="btn-template" style="flex:1; height:30px;" onclick="clearSablonok()">Törlés</button>
+                    </div>
+                </div>
+
+                <div id="tpl-jarmu" style="display:none;">
+                    <span class="template-select-label">Jármű sablon</span>
+                    <select id="sel-jarmu" class="template-select" onchange="loadSelectedTemplate('jarmu')"></select>
+                </div>
+                <div id="tpl-ingatlan" style="display:none;">
+                    <span class="template-select-label">Ingatlan sablon</span>
+                    <select id="sel-ingatlan" class="template-select" onchange="loadSelectedTemplate('ingatlan')"></select>
+                </div>
+                <div id="tpl-szamla" style="display:none;">
+                    <span class="template-select-label">Számla sablon</span>
+                    <select id="sel-szamla" class="template-select" onchange="loadSelectedTemplate('szamla')"></select>
+                </div>
+                <div id="tpl-ertekpapir" style="display:none;">
+                    <span class="template-select-label">Értékpapír sablon</span>
+                    <select id="sel-ertekpapir" class="template-select" onchange="loadSelectedTemplate('ertekpapir')"></select>
+                </div>
+                <div id="template-status"></div>
+            </div>
+
+            <div class="sidebar-spacer"></div>
+            <div class="sidebar-footer mono">v2.0.1</div>
+        </aside>
+
+        <main class="main">
+            <div id="welcome" class="welcome-state">
+                <div class="welcome-icon mono">&#9776;</div>
+                <div class="welcome-title">Dokumentum feldolgozása</div>
+                <div class="welcome-text">Húzzon be egy PDF fájlt a bal oldali panelre, vagy kattintson a Tallózás gombra. Az alkalmazás automatikusan felismeri a dokumentum típusát.</div>
+            </div>
+
+            <div id="content" style="display:none;">
+                <div class="main-header">
+                    <div class="main-header-info">
+                        <div style="display:flex; align-items:center; gap:9px;">
+                            <span class="type-badge mono" id="type-badge">felismert típus</span>
+                            <span class="main-title" id="type-label"></span>
+                        </div>
+                        <span class="main-subtitle" id="type-subtitle"></span>
+                    </div>
+                    <div class="main-header-actions">
+                        <span class="hint-wrap">
+                            <button class="btn-hint" onclick="toggleHint(this)" title="A dokumentum összes kulcsa">?</button>
+                            <div class="hint-popup mono" id="hint-doc"></div>
+                        </span>
+                        <button class="btn-primary" onclick="generateAllFromTemplate()">
+                            <span id="fill-all-label">Sablon kitöltése</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="pinned-container" class="stack"></div>
+
+                <div class="filter-bar">
+                    <span class="prefix mono">/</span>
+                    <input id="filter-input" type="text" placeholder="Szűrés mező vagy érték szerint…" oninput="applyFilter()">
+                    <span id="filter-count" class="count mono"></span>
+                </div>
+
+                <div id="groups-container" class="stack"></div>
+                <div id="empty-filter" class="empty-state" style="display:none;">Nincs a szűrőnek megfelelő tétel.</div>
+            </div>
+        </main>
+    </div>
+
+    </div><!-- /app-shell -->
+
+    <!-- Nagyítás: az egész felületet méretezi, a beállítás megmarad -->
+    <div class="zoom-bar" role="group" aria-label="Nagyítás">
+        <button type="button" class="zoom-btn" onclick="stepZoom(-10)" aria-label="Kicsinyítés">&#8722;</button>
+        <input id="zoom-range" class="zoom-range" type="range" min="50" max="300" step="10" value="100"
+               aria-label="Nagyítás mértéke" oninput="setZoom(this.value)">
+        <button type="button" class="zoom-btn" onclick="stepZoom(10)" aria-label="Nagyítás">+</button>
+        <button type="button" id="zoom-value" class="zoom-value mono" onclick="setZoom(100)"
+                title="Visszaállítás 100%-ra">100%</button>
+    </div>
+
+    <script src="Data/Dependencies/pdf.min.js"></script>
+    <script src="Data/Dependencies/mammoth.browser.min.js"></script>
+    <script src="Data/mapping.js"></script>
+    <script src="Data/helper.js"></script>
+    <script src="Data/models.js"></script>
+    <script src="Data/rtf.js"></script>
+    <script src="Data/docx.js"></script>
+    <script>
+    // --- App State ---
+    const state = {
+        theme: 'dark',
+        fileName: null,
+        docType: null,
+        parsedData: null,
+        manual: {},
+        sablonok: {},
+        sablonRoot: 'Sablonok',
+        templates: {},
+        _groups: null,
+        copiedTimer: null,
+        zoom: 100
+    };
+
+    // --- Theme ---
+    function toggleTheme() {
+        state.theme = state.theme === 'dark' ? 'light' : 'dark';
+        if (state.theme === 'dark') document.body.removeAttribute('data-theme');
+        else document.body.setAttribute('data-theme', 'light');
+        document.getElementById('theme-label').textContent = state.theme === 'dark' ? 'light' : 'dark';
+    }
+
+    // --- Nagyítás ---
+    const ZOOM_STORE = 'probatetools.zoom';
+    const ZOOM_MIN = 50;
+    const ZOOM_MAX = 300;
+
+    function setZoom(percent, persist) {
+        const value = Math.round(Number(percent));
+        const z = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, isNaN(value) ? 100 : value));
+        state.zoom = z;
+        document.documentElement.style.setProperty('--zoom', (z / 100).toString());
+        const range = document.getElementById('zoom-range');
+        if (Number(range.value) !== z) range.value = z;
+        document.getElementById('zoom-value').textContent = z + '%';
+        applyBreakpoint();
+        if (persist === false) return;
+        try { localStorage.setItem(ZOOM_STORE, String(z)); } catch (err) { /* tárhely nem elérhető */ }
+    }
+
+    function stepZoom(delta) {
+        setZoom(state.zoom + delta);
+    }
+
+    // A töréspont a nagyítással korrigált szélességre néz: 200%-on egy széles
+    // ablak is annyi helyet kínál, mint egy fele akkora 100%-on.
+    function applyBreakpoint() {
+        const w = window.innerWidth / (state.zoom / 100);
+        document.documentElement.dataset.w =
+            w < 560 ? 'xs' : w < 820 ? 'sm' : w < 1150 ? 'md' : 'lg';
+    }
+
+    window.addEventListener('resize', applyBreakpoint);
+
+    (function restoreZoom() {
+        let saved = null;
+        try { saved = localStorage.getItem(ZOOM_STORE); } catch (err) { /* ignore */ }
+        setZoom(saved === null ? 100 : saved, false);
+    })();
+
+    // --- PDF Setup ---
+    if (typeof pdfjsLib !== 'undefined') {
+        pdfjsLib.GlobalWorkerOptions.workerSrc = 'Data/Dependencies/pdf.worker.min.js';
+    }
+
+    async function extractTextFromPDF(arrayBuffer) {
+        const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+        let fullText = '';
+        for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const content = await page.getTextContent();
+            let lastY = null;
+            let line = '';
+            content.items.forEach(item => {
+                const y = item.transform[5];
+                if (lastY !== null && Math.abs(y - lastY) > 5) {
+                    fullText += line + '\n';
+                    line = '';
+                }
+                line += item.str;
+                lastY = y;
+            });
+            if (line) fullText += line + '\n';
+            fullText += '\n';
+        }
+        return fullText;
+    }
+
+    // --- PDF Drop Zone ---
+    const pdfDrop = document.getElementById('pdf-drop');
+    const pdfInput = document.getElementById('pdf-input');
+
+    pdfDrop.addEventListener('dragover', e => { e.preventDefault(); pdfDrop.classList.add('dragover'); });
+    pdfDrop.addEventListener('dragleave', () => pdfDrop.classList.remove('dragover'));
+    pdfDrop.addEventListener('drop', e => {
+        e.preventDefault();
+        pdfDrop.classList.remove('dragover');
+        const file = e.dataTransfer.files[0];
+        if (file && file.type === 'application/pdf') handlePDF(file);
+    });
+    pdfInput.addEventListener('change', e => { if (e.target.files[0]) handlePDF(e.target.files[0]); });
+
+    async function handlePDF(file) {
+        state.fileName = file.name;
+        try {
+            const arrayBuffer = await file.arrayBuffer();
+            const text = await extractTextFromPDF(arrayBuffer);
+            const docType = detectDocumentType(text);
+
+            if (!docType) {
+                showTemplateStatus('Nem felismerhető dokumentum típus.', 'error');
+                return;
+            }
+
+            state.docType = docType;
+            state.manual = {};
+
+            if (docType === 'jarmu') state.parsedData = parseVehicleData(text);
+            else if (docType === 'szamla') state.parsedData = parseAccountData(text);
+            else if (docType === 'ingatlan') state.parsedData = parseRealEstateData(text);
+
+            updateFileInfo();
+            renderContent();
+        } catch (err) {
+            showTemplateStatus('Hiba a PDF feldolgozásakor: ' + err.message, 'error');
+        }
+    }
+
+    function updateFileInfo() {
+        document.getElementById('file-info').style.display = 'flex';
+        document.getElementById('header-file').style.display = 'flex';
+        document.getElementById('file-info-name').textContent = state.fileName;
+        document.getElementById('header-file-name').textContent = state.fileName;
+
+        const typeLabel = DOC_TYPES[state.docType]?.label || '';
+        let count = 0;
+        if (state.docType === 'ingatlan') count = state.parsedData?.items?.length || 0;
+        else if (Array.isArray(state.parsedData)) count = state.parsedData.length;
+        document.getElementById('file-info-meta').textContent = typeLabel + ' · ' + count + ' tétel';
+    }
+
+    // --- Templates ---
+    // A file:// page cannot list a folder on its own, so the Sablonok folder is
+    // handed over once (drag & drop or Tallózás). The .docx bytes are then kept
+    // in localStorage, so later page loads restore them without any interaction.
+    const SABLON_STORE = 'probatetools.sablonok';
+    // 'ertekpapir' before 'szamla' so the file-name fallback matches it first
+    const SABLON_TYPES = ['jarmu', 'ertekpapir', 'szamla', 'ingatlan'];
+    const DIACRITICS = new RegExp('[\\u0300-\\u036f]', 'g');
+
+    function normalizeName(name) {
+        return name.toLowerCase().normalize('NFD').replace(DIACRITICS, '');
+    }
+
+    // Type from the containing folder, falling back to the file name itself
+    function typeFromPath(path) {
+        const parts = path.split('/');
+        if (parts.length >= 2) {
+            const parent = normalizeName(parts[parts.length - 2]);
+            if (SABLON_TYPES.includes(parent)) return parent;
+        }
+        const base = normalizeName(parts[parts.length - 1]);
+        return SABLON_TYPES.find(t => base.includes(t)) || null;
+    }
+
+    function isTemplateFile(name) {
+        return /\.(docx|rtf)$/i.test(name) && !name.startsWith('~$');
+    }
+
+    function templateExt(name) {
+        return name.toLowerCase().endsWith('.rtf') ? 'rtf' : 'docx';
+    }
+
+    function arrayBufferToBase64(buffer) {
+        const bytes = new Uint8Array(buffer);
+        let bin = '';
+        for (let i = 0; i < bytes.length; i += 0x8000) {
+            bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 0x8000));
+        }
+        return btoa(bin);
+    }
+
+    function base64ToArrayBuffer(b64) {
+        const bin = atob(b64);
+        const bytes = new Uint8Array(bin.length);
+        for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+        return bytes.buffer;
+    }
+
+    // --- Reading a dropped / picked folder ---
+    // A directory arrives in batches, and the reader has to be drained before
+    // anything else touches the filesystem — recursing between two readEntries
+    // calls on the same reader invalidates it, which surfaces as an encoding
+    // error rather than as anything readable.
+    function readEntries(reader) {
+        return new Promise((res, rej) => reader.readEntries(res, rej));
+    }
+
+    async function readDirectory(entry) {
+        const reader = entry.createReader();
+        const children = [];
+        let batch;
+        do {
+            batch = await readEntries(reader);
+            children.push.apply(children, batch);
+        } while (batch.length > 0);
+        return children;
+    }
+
+    // One unreadable file must not cost the whole folder, so failures are
+    // recorded — with the reason, which is the only clue to what a browser
+    // refused — instead of stopping the walk.
+    function noteSkipped(skipped, name, err) {
+        skipped.push(name + ' (' + (err && (err.name || err.message) || 'ismeretlen hiba') + ')');
+    }
+
+    async function readEntry(entry, path, out, skipped) {
+        try {
+            if (entry.isFile) {
+                if (!isTemplateFile(entry.name)) return;
+                const file = await new Promise((res, rej) => entry.file(res, rej));
+                out.push({ file, path: path + entry.name });
+                return;
+            }
+            const children = await readDirectory(entry);
+            for (const child of children) {
+                await readEntry(child, path + entry.name + '/', out, skipped);
+            }
+        } catch (err) {
+            noteSkipped(skipped, path + entry.name, err);
+        }
+    }
+
+    // The newer handle API. The legacy entry API above cannot always resolve a
+    // dropped folder when the page itself was opened from disk, and this one
+    // reaches the same folder by a different route.
+    async function readHandle(handle, path, out, skipped) {
+        try {
+            if (handle.kind === 'file') {
+                if (!isTemplateFile(handle.name)) return;
+                out.push({ file: await handle.getFile(), path: path + handle.name });
+                return;
+            }
+            for await (const child of handle.values()) {
+                await readHandle(child, path + handle.name + '/', out, skipped);
+            }
+        } catch (err) {
+            noteSkipped(skipped, path + handle.name, err);
+        }
+    }
+
+    async function ingestFiles(found, rootName) {
+        const map = {};
+
+        for (const { file, path } of found) {
+            const type = typeFromPath(path);
+            if (!type) continue;
+            const data = arrayBufferToBase64(await file.arrayBuffer());
+            (map[type] = map[type] || []).push({
+                name: file.name.replace(/\.(docx|rtf)$/i, ''),
+                ext: templateExt(file.name),
+                data
+            });
+        }
+
+        Object.values(map).forEach(l => l.sort((a, b) => a.name.localeCompare(b.name, 'hu')));
+
+        const total = Object.values(map).reduce((n, l) => n + l.length, 0);
+        if (total === 0) {
+            showTemplateStatus('Nem található .docx a Jarmu / Szamla / Ertekpapir / Ingatlan mappákban.', 'error');
+            return;
+        }
+
+        state.sablonok = map;
+        state.sablonRoot = rootName || 'Sablonok';
+        state.templates = {};
+
+        try {
+            localStorage.setItem(SABLON_STORE, JSON.stringify({ root: state.sablonRoot, map }));
+        } catch (err) {
+            showTemplateStatus('A sablonok betöltődtek, de nem menthetők (tárhely megtelt).', 'error');
+        }
+
+        showSablonInfo();
+        if (state.docType) populateTemplateDropdowns(state.docType);
+    }
+
+    function showSablonInfo() {
+        const total = Object.values(state.sablonok).reduce((n, l) => n + l.length, 0);
+        document.getElementById('sablon-drop').style.display = 'none';
+        document.getElementById('sablon-info').style.display = 'flex';
+        document.getElementById('sablon-name').textContent = state.sablonRoot;
+        document.getElementById('sablon-meta').textContent =
+            total + ' sablon · ' + Object.keys(state.sablonok).length + ' típus';
+    }
+
+    function clearSablonok() {
+        state.sablonok = {};
+        state.templates = {};
+        try { localStorage.removeItem(SABLON_STORE); } catch (err) { /* ignore */ }
+        document.getElementById('sablon-drop').style.display = 'flex';
+        document.getElementById('sablon-info').style.display = 'none';
+        SABLON_TYPES.forEach(t => { document.getElementById('tpl-' + t).style.display = 'none'; });
+    }
+
+    function restoreSablonok() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(SABLON_STORE) || 'null');
+            if (!saved || !saved.map) return;
+            state.sablonok = saved.map;
+            state.sablonRoot = saved.root || 'Sablonok';
+            showSablonInfo();
+        } catch (err) { /* corrupt or unavailable storage — start clean */ }
+    }
+
+    // --- Drop zone + folder picker ---
+    // The whole panel takes the drop, not just the empty-state box: that box is
+    // hidden once templates are loaded, and dropping a folder should replace
+    // them then too, instead of forcing the Tallózás dialog.
+    const sablonZone = document.getElementById('template-section');
+
+    sablonZone.addEventListener('dragover', e => {
+        e.preventDefault();
+        sablonZone.classList.add('dragover');
+    });
+
+    // moving onto a child fires dragleave as well, so check where the pointer went
+    sablonZone.addEventListener('dragleave', e => {
+        if (!sablonZone.contains(e.relatedTarget)) sablonZone.classList.remove('dragover');
+    });
+
+    sablonZone.addEventListener('drop', async e => {
+        e.preventDefault();
+        sablonZone.classList.remove('dragover');
+
+        // Everything must be taken off dataTransfer synchronously — it is
+        // cleared as soon as this handler awaits anything
+        const items = Array.from(e.dataTransfer.items || []);
+        const handlePromises = items.map(i => i.getAsFileSystemHandle && i.getAsFileSystemHandle());
+        const entries = items.map(i => i.webkitGetAsEntry && i.webkitGetAsEntry()).filter(Boolean);
+        // A folder dragged out of the browser's own file:// listing arrives as a
+        // link, not as a folder, and the entry behind it cannot be read
+        const draggedLink = (e.dataTransfer.getData('text/uri-list') || '').indexOf('file:') === 0;
+
+        if (draggedLink) {
+            showTemplateStatus('Böngészőből behúzott mappa nem olvasható — húzza be a Fájlkezelőből.', 'error');
+            return;
+        }
+
+        const found = [];
+        const skipped = [];
+
+        const handles = (await Promise.all(
+            handlePromises.map(p => Promise.resolve(p).catch(() => null)))).filter(h => h && h.kind);
+        for (const handle of handles) await readHandle(handle, '', found, skipped);
+
+        // only fall back to the legacy API if the newer one gave nothing
+        if (found.length === 0) {
+            for (const entry of entries) await readEntry(entry, '', found, skipped);
+        }
+
+        if (found.length === 0) {
+            if (!handles.length && !entries.length) {
+                showTemplateStatus('Ezt a böngésző nem engedi behúzni — használja a Tallózás gombot.', 'error');
+            } else if (skipped.length) {
+                showTemplateStatus('A mappa nem olvasható — ' + skipped[0] +
+                    ' — használja a Tallózás gombot.', 'error');
+            } else {
+                showTemplateStatus('A mappában nincs .docx vagy .rtf sablon.', 'error');
+            }
+            return;
+        }
+
+        const rootHandle = handles.length === 1 && handles[0].kind === 'directory' ? handles[0].name : '';
+        const rootEntry = entries.length === 1 && entries[0].isDirectory ? entries[0].name : '';
+        await ingestFiles(found, rootHandle || rootEntry || 'Sablonok');
+
+        if (skipped.length) {
+            showTemplateStatus(skipped.length + ' elem kimaradt: ' + skipped.slice(0, 3).join(', '), 'error');
+        }
+    });
+
+    // A folder dropped next to the panel would otherwise navigate away from the
+    // app and take the loaded document with it
+    window.addEventListener('dragover', e => e.preventDefault());
+    window.addEventListener('drop', e => e.preventDefault());
+
+    document.getElementById('sablon-folder-input').addEventListener('change', async e => {
+        const files = Array.from(e.target.files || []).filter(f => isTemplateFile(f.name));
+        const found = files.map(f => ({ file: f, path: f.webkitRelativePath || f.name }));
+        const root = (files[0]?.webkitRelativePath || '').split('/')[0];
+        await ingestFiles(found, root);
+        e.target.value = '';
+    });
+
+    function populateTemplateDropdowns(docType) {
+        SABLON_TYPES.forEach(t => { document.getElementById('tpl-' + t).style.display = 'none'; });
+
+        const needed = docType === 'szamla' ? ['szamla', 'ertekpapir'] : [docType];
+
+        needed.forEach(type => {
+            const list = state.sablonok[type] || [];
+            fillDropdown('sel-' + type, list);
+            document.getElementById('tpl-' + type).style.display = list.length ? 'block' : 'none';
+            if (list.length) loadSelectedTemplate(type);
+        });
+    }
+
+    function fillDropdown(selectId, list) {
+        const sel = document.getElementById(selectId);
+        sel.innerHTML = '';
+        list.forEach((tpl, i) => {
+            const opt = document.createElement('option');
+            opt.value = i;
+            opt.textContent = tpl.name.replace(/_/g, ' ');
+            sel.appendChild(opt);
+        });
+    }
+
+    async function loadSelectedTemplate(type) {
+        const sel = document.getElementById('sel-' + type);
+        if (!sel) return;
+        const idx = parseInt(sel.value, 10);
+        const tpl = (state.sablonok[type] || [])[idx];
+        if (!tpl) return;
+
+        const cacheKey = type + ':' + idx;
+        if (state.templates[cacheKey]) return;
+
+        try {
+            const arrayBuffer = base64ToArrayBuffer(tpl.data);
+            if (tpl.ext === 'rtf') {
+                state.templates[cacheKey] = rtfToHtml(arrayBuffer);
+            } else {
+                try {
+                    // Keeps colour / size / font / alignment, which mammoth drops
+                    state.templates[cacheKey] = await docxToHtml(arrayBuffer);
+                } catch (err) {
+                    const htmlResult = await mammoth.convertToHtml({ arrayBuffer });
+                    const textResult = await mammoth.extractRawText({ arrayBuffer });
+                    state.templates[cacheKey] = { html: htmlResult.value, text: textResult.value };
+                }
+            }
+        } catch (err) {
+            showTemplateStatus('Hiba a sablon betöltésekor: ' + err.message, 'error');
+        }
+    }
+
+    // A file dropped outside a zone would otherwise navigate the browser away
+    ['dragover', 'drop'].forEach(evt => {
+        document.addEventListener(evt, e => {
+            if (!e.target.closest('.drop-zone, .template-zone')) e.preventDefault();
+        });
+    });
+
+    restoreSablonok();
+
+    function getLoadedTemplate(type) {
+        const sel = document.getElementById('sel-' + type);
+        if (!sel) return null;
+        return state.templates[type + ':' + sel.value] || null;
+    }
+
+    function showTemplateStatus(msg, type) {
+        const el = document.getElementById('template-status');
+        el.innerHTML = '<div class="status status-' + type + '">' + esc(msg) + '</div>';
+        setTimeout(() => { el.innerHTML = ''; }, 4000);
+    }
+
+    // --- Content Rendering ---
+    function renderContent() {
+        document.getElementById('welcome').style.display = 'none';
+        const content = document.getElementById('content');
+        content.style.display = 'flex';
+        content.style.flexDirection = 'column';
+        content.style.gap = '18px';
+
+        const label = DOC_TYPES[state.docType]?.label || state.docType;
+
+        document.getElementById('type-badge').textContent = 'felismert típus';
+        document.getElementById('type-label').textContent = label;
+
+        let subtitle = '';
+        if (state.docType === 'jarmu' && state.parsedData.length > 0) {
+            const v = state.parsedData[0];
+            subtitle = (v.kereskedelminev || '') + ' · ' + (v.rendszam || '');
+        } else if (state.docType === 'ingatlan') {
+            subtitle = state.parsedData.cim || '';
+        } else if (state.docType === 'szamla' && state.parsedData.length > 0) {
+            subtitle = 'Pénzügyi eszközök';
+        }
+        document.getElementById('type-subtitle').textContent = subtitle;
+
+        document.getElementById('hint-doc').innerHTML = buildDocHintText(state.docType);
+
+        populateTemplateDropdowns(state.docType);
+        renderGroups();
+        updateFilterCount();
+    }
+
+    function renderGroups() {
+        const container = document.getElementById('groups-container');
+        // A pinned block sits above the filter box and the filter never hides it
+        const pinnedContainer = document.getElementById('pinned-container');
+        container.innerHTML = '';
+        pinnedContainer.innerHTML = '';
+        const query = (document.getElementById('filter-input').value || '').trim().toLowerCase();
+
+        let groups = [];
+
+        if (state.docType === 'ingatlan') {
+            const d = state.parsedData;
+            const shared = { cim: d.cim, megnevezes: d.megnevezes };
+            // The whole document describes one property and yields one filled
+            // block, from the document's own data. Per-owner fields are not
+            // taken from any single entry.
+            groups.push({
+                badge: 'CÍM', title: 'Ingatlan azonosító', type: 'ingatlan',
+                templateBtn: false,
+                // identifies the whole document, so it sits above the filter
+                // box and stays put whatever is typed there
+                pinned: true,
+                // one property, so the value typed here belongs to the document
+                manualScope: 'doc',
+                rows: [
+                    { label: 'Cím', key: 'cim', value: d.cim },
+                    { label: 'Megnevezés', key: 'megnevezes', value: d.megnevezes || '' }
+                ].concat(manualRowsFor('doc', INGATLAN_MANUAL_FIELDS)),
+                data: shared
+            });
+            const itemGroups = d.items.map((item, i) => ({
+                badge: item.sorszam || String(i + 1),
+                title: item.tipus || 'Tétel',
+                type: 'ingatlan',
+                fillable: false,
+                rows: INGATLAN_TETEL_FIELDS.map(f => ({ label: f.label, key: f.key, value: fieldValue(f, item) })),
+                data: item
+            }));
+            itemGroups.forEach(g => groups.push(g));
+
+            // ${sorszamlista} follows the filter: whichever entries are on
+            // screen are the ones the sentence enumerates
+            const visibleItems = itemGroups.filter(g => !query || groupMatches(g, query));
+            shared._sorszamok = visibleItems.map(g => g.data.sorszam).filter(Boolean);
+            shared._hanyadok = visibleItems.map(g => g.data.tulajdoniHanyad).filter(Boolean);
+        } else if (state.docType === 'jarmu') {
+            state.parsedData.forEach((v, i) => {
+                // one document can list several vehicles, each worth its own
+                // amount, so the typed value belongs to the block
+                const scope = 'jarmu' + i;
+                groups.push({
+                    badge: String(i + 1), title: v.fajta || 'Jármű', type: 'jarmu',
+                    manualScope: scope,
+                    rows: JARMU_FIELDS
+                        .map(f => ({ label: f.label, key: f.key, value: fieldValue(f, v) }))
+                        .concat(manualRowsFor(scope, JARMU_MANUAL_FIELDS)),
+                    data: v
+                });
+            });
+        } else if (state.docType === 'szamla') {
+            // One PDF is one institution's reply, so its name is a block of
+            // its own instead of a row repeated on every account
+            const banknev = (state.parsedData[0] || {}).banknev || '';
+            if (banknev) {
+                groups.push({
+                    badge: 'BANK', title: 'Pénzintézet', type: 'szamla',
+                    fillable: false,
+                    pinned: true,
+                    rows: [{ label: 'A pénzintézet megnevezése', key: 'banknev', value: banknev }],
+                    data: { banknev: banknev }
+                });
+            }
+            // A securities account is reported once per holding, all under the
+            // same account number. They form a single block: the account itself
+            // from the Szamla template, then one Ertekpapir line per holding.
+            const holdings = {};
+            state.parsedData.forEach(a => {
+                if (a._type !== 'ertekpapir') return;
+                holdings[a.azonosito] = (holdings[a.azonosito] || []).concat([a]);
+            });
+
+            state.parsedData.forEach((a, i) => {
+                const isSec = a._type === 'ertekpapir';
+                const fields = (isSec ? ERTEKPAPIR_FIELDS : SZAMLA_FIELDS)
+                    .filter(f => f.key !== 'banknev');
+                const group = {
+                    badge: String(i + 1),
+                    title: isSec ? 'Értékpapírszámla' : 'Bankszámla',
+                    type: isSec ? 'ertekpapir' : 'szamla',
+                    rows: fields.map(f => ({ label: f.label, key: f.key, value: fieldValue(f, a) })),
+                    data: a
+                };
+                if (isSec) {
+                    const account = holdings[a.azonosito];
+                    // the first holding of an account speaks for all of them
+                    if (account[0] === a) {
+                        group.parts = [{ type: 'szamla', data: a }].concat(
+                            account.map(h => ({ type: 'ertekpapir', data: h })));
+                    } else {
+                        group.fillable = false;
+                    }
+                }
+                groups.push(group);
+            });
+        }
+
+        let visibleGroups = 0;
+
+        // A hit anywhere in a block shows the whole block — an entry is only
+        // useful read as a whole, not as the one row that matched.
+        groups.forEach((group, gi) => {
+            if (!group.pinned) {
+                if (query && !groupMatches(group, query)) return;
+                visibleGroups++;
+            }
+
+            const section = document.createElement('section');
+            section.className = 'group';
+            section.setAttribute('data-group', gi);
+            // Both kinds of block turn up in the same document, so the tint
+            // tells a bank account from a securities account at a glance.
+            // The pinned block is neither, so it stays neutral.
+            if (!group.pinned && (group.type === 'szamla' || group.type === 'ertekpapir')) {
+                section.setAttribute('data-tint', group.type);
+            }
+
+            let html = '<div class="group-header">';
+            html += '<span class="group-badge mono">' + esc(group.badge) + '</span>';
+            html += '<span class="group-title">' + esc(group.title) + '</span>';
+            html += '<div class="group-spacer"></div>';
+            html += '<span class="hint-wrap">';
+            html += '<button class="btn-hint" onclick="toggleHint(this)">?</button>';
+            html += '<div class="hint-popup mono" id="hint-' + gi + '">' + buildHintText(group.type) + '</div>';
+            html += '</span>';
+            if (group.fillable !== false && group.templateBtn !== false) {
+                html += '<button class="btn-template" onclick="generateFromTemplate(' + gi + ')">Sablon kitöltése</button>';
+            }
+            html += '</div>';
+
+            group.rows.forEach(row => {
+                const cid = 'c-' + gi + '-' + row.key;
+                html += '<div class="row">';
+                html += '<span class="row-label">' + esc(row.label) + '</span>';
+                if (row.editable) {
+                    const manualId = row.scope + '.' + row.key;
+                    html += '<input class="row-input mono" type="text" inputmode="numeric"' +
+                        ' placeholder="' + escAttr(row.placeholder) + '"' +
+                        ' value="' + escAttr(row.value) + '"' +
+                        ' oninput="setManualValue(\'' + manualId + '\', this.value)"' +
+                        ' onchange="formatManualValue(this, \'' + manualId + '\')">';
+                    html += '<span class="row-unit mono">kézi</span>';
+                } else {
+                    html += '<span class="row-value mono">' + esc(row.value) + '</span>';
+                    html += '<button id="' + cid + '" class="btn-copy mono" onclick="copyField(this, \'' + escAttr(row.value) + '\')">copy</button>';
+                }
+                html += '</div>';
+            });
+
+            section.innerHTML = html;
+            (group.pinned ? pinnedContainer : container).appendChild(section);
+        });
+
+        document.getElementById('empty-filter').style.display = (query && visibleGroups === 0) ? 'block' : 'none';
+        state._groups = groups;
+    }
+
+    // --- Hand-entered values ---
+    // Typed values are held per block: two vehicles in one document are worth
+    // two different amounts, so the scope keeps them apart. The fill reads them
+    // at the last moment, so typing never has to re-render — which would take
+    // the focus out of the field mid-word.
+    function manualRowsFor(scope, fields) {
+        return fields.map(f => ({
+            label: f.label, key: f.key, scope: scope,
+            value: state.manual[scope + '.' + f.key] || '',
+            editable: true, placeholder: f.placeholder || ''
+        }));
+    }
+
+    function manualDataFor(scope) {
+        const values = {};
+        if (!scope) return values;
+
+        const prefix = scope + '.';
+        Object.keys(state.manual).forEach(id => {
+            if (id.indexOf(prefix) === 0) values[id.slice(prefix.length)] = state.manual[id];
+        });
+        return values;
+    }
+
+    function setManualValue(id, value) {
+        state.manual[id] = value;
+    }
+
+    // Regrouped only on leaving the field, so the caret never jumps mid-typing
+    function formatManualValue(input, id) {
+        const digits = (input.value || '').replace(/\D/g, '');
+        input.value = digits ? digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.') : '';
+        setManualValue(id, input.value);
+    }
+
+    function applyFilter() { renderGroups(); updateFilterCount(); }
+
+    function groupMatches(group, query) {
+        return group.rows.some(r =>
+            r.label.toLowerCase().includes(query) || r.value.toLowerCase().includes(query));
+    }
+
+    // Whole blocks are shown, so the count is of the fields actually on screen.
+    // Pinned blocks are never filtered, so they are not counted either.
+    function updateFilterCount() {
+        const query = (document.getElementById('filter-input').value || '').trim().toLowerCase();
+        let total = 0, shown = 0;
+        if (state._groups) {
+            state._groups.filter(g => !g.pinned).forEach(g => {
+                total += g.rows.length;
+                if (query && groupMatches(g, query)) shown += g.rows.length;
+            });
+        }
+        document.getElementById('filter-count').textContent = query ? shown + ' / ' + total : total + ' mező';
+    }
+
+    // --- Copy ---
+    function copyField(btn, text) {
+        copyPlainText(text);
+        btn.textContent = 'másolva';
+        btn.classList.add('copied');
+        clearTimeout(state.copiedTimer);
+        state.copiedTimer = setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 1400);
+    }
+
+    // --- Template Generation ---
+    // A block can be built from several template fills — a securities account
+    // is its own account line followed by one line per holding. Those belong on
+    // consecutive lines, so the parts are joined without a blank line between.
+    // Without a template the raw fields are the next best thing to hand over.
+    function buildFilledBlock(group) {
+        const parts = group.parts || [{ type: group.type, data: group.data }];
+        const typed = manualDataFor(group.manualScope);
+        const filled = parts.map(part => {
+            const tpl = getLoadedTemplate(part.type);
+            if (!tpl) {
+                return { html: '', text: group.rows.map(r => r.label + ': ' + r.value).join('\n') };
+            }
+            const data = Object.assign({}, part.data, typed);
+            return {
+                html: tpl.html ? fillTemplate(tpl.html, data, part.type) : '',
+                text: fillTemplate(tpl.text || '', data, part.type)
+            };
+        });
+
+        if (filled.length === 1) return filled[0];
+        return {
+            // one missing template would silently drop that part from the
+            // rich copy, so the whole block falls back to plain text
+            html: filled.every(f => f.html) ? filled.map(f => trimHtmlBlock(f.html)).join('') : '',
+            text: filled.map(f => f.text.replace(/\s+$/, '')).join('\n')
+        };
+    }
+
+    // Some templates end with an empty paragraph and some do not, so every
+    // block is trimmed and one blank line is put back between blocks —
+    // never after the last one.
+    const TRAILING_BLANK_PARA = /(?:<p[^>]*>(?:\s|&nbsp;|<br\s*\/?>)*<\/p>\s*)+$/i;
+
+    function trimHtmlBlock(html) {
+        const trimmed = html.replace(/\s+$/, '');
+        // the wrapper carries the template font, so trim inside it
+        if (trimmed.endsWith('</div>')) {
+            return trimmed.slice(0, -6).replace(TRAILING_BLANK_PARA, '') + '</div>';
+        }
+        return trimmed.replace(TRAILING_BLANK_PARA, '');
+    }
+
+    // the separating paragraph also goes inside the wrapper, to keep its font
+    function appendBlankPara(html) {
+        return html.endsWith('</div>')
+            ? html.slice(0, -6) + '<p>&nbsp;</p></div>'
+            : html + '<p>&nbsp;</p>';
+    }
+
+    function copyBlocks(blocks) {
+        const last = blocks.length - 1;
+        const plain = blocks.map(b => b.text.replace(/\s+$/, '')).join('\n\n');
+
+        if (blocks.some(b => b.html)) {
+            const html = blocks
+                .map(b => b.html || '<div>' + esc(b.text).replace(/\n/g, '<br>') + '</div>')
+                .map(h => trimHtmlBlock(h))
+                .map((h, i) => (i === last ? h : appendBlankPara(h)))
+                .join('');
+            copyRichText(html, plain);
+        } else {
+            copyPlainText(plain);
+        }
+    }
+
+    function generateFromTemplate(groupIndex) {
+        const group = state._groups && state._groups[groupIndex];
+        if (!group) return;
+        copyBlocks([buildFilledBlock(group)]);
+        showCopyFeedback(groupIndex);
+    }
+
+    // One button for the whole document: every fillable entry, in order.
+    function generateAllFromTemplate() {
+        const groups = (state._groups || []).filter(g => g.fillable !== false);
+        if (!groups.length) return;
+        copyBlocks(groups.map(buildFilledBlock));
+
+        const label = document.getElementById('fill-all-label');
+        label.textContent = 'Vágólapra másolva';
+        setTimeout(() => { label.textContent = 'Sablon kitöltése'; }, 1600);
+    }
+
+    // Word only understands its own mso-* CSS, and the browser's CSS parser
+    // throws unknown properties away the moment HTML enters the DOM. So the
+    // markup is handed to the clipboard as a raw string instead of being
+    // built into the page and copied from there.
+    function wordClipboardHtml(body) {
+        return '<html xmlns:o="urn:schemas-microsoft-com:office:office" ' +
+               'xmlns:w="urn:schemas-microsoft-com:office:word" ' +
+               'xmlns="http://www.w3.org/TR/REC-html40">' +
+               '<head><meta charset="utf-8"></head>' +
+               // Everything copied is Hungarian; without this Word proofs the
+               // pasted text in whatever the template's Word was set up for
+               // and underlines all of it in red.
+               '<body lang="hu-HU" style="mso-ansi-language:HU">' + body + '</body></html>';
+    }
+
+    function copyRichText(html, plain) {
+        const onCopy = e => {
+            e.clipboardData.setData('text/html', wordClipboardHtml(html));
+            e.clipboardData.setData('text/plain', plain || '');
+            e.preventDefault();
+        };
+
+        document.addEventListener('copy', onCopy, true);
+        try {
+            // execCommand needs something selected before it fires `copy`
+            const ta = document.createElement('textarea');
+            ta.value = plain || ' ';
+            ta.style.position = 'fixed';
+            ta.style.left = '-9999px';
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+        } finally {
+            document.removeEventListener('copy', onCopy, true);
+        }
+    }
+
+    function copyPlainText(text) {
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        ta.style.position = 'fixed';
+        ta.style.left = '-9999px';
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+    }
+
+    function showCopyFeedback(groupIndex) {
+        const section = document.querySelector('[data-group="' + groupIndex + '"]');
+        if (!section) return;
+        const btn = section.querySelector('.btn-template');
+        if (!btn) return;
+        const orig = btn.textContent;
+        btn.textContent = 'Másolva!';
+        btn.style.borderColor = 'var(--ok)';
+        btn.style.color = 'var(--ok)';
+        setTimeout(() => { btn.textContent = orig; btn.style.borderColor = ''; btn.style.color = ''; }, 1600);
+    }
+
+    // --- Hint ---
+    function hintLine(field) {
+        return esc(field.label) + ': <span class="hint-key" title="Kattintson a másoláshoz" ' +
+            'onclick="copyHintKey(event, this)">${' + field.key + '}</span>';
+    }
+
+    function buildHintText(type) {
+        return getFieldsForType(type).map(hintLine).join('\n');
+    }
+
+    // Every key of the whole PDF kind: what the document itself gives first,
+    // then the keys worked out from it.
+    function buildDocHintText(docType) {
+        const fields = getFieldsForPdfType(docType);
+        const parsed = fields.filter(f => !f.compute);
+        const computed = fields.filter(f => f.compute);
+
+        let text = parsed.map(hintLine).join('\n');
+        if (computed.length) {
+            text += '\n<span class="hint-separator">számított mezők</span>\n' +
+                computed.map(hintLine).join('\n');
+        }
+        return text;
+    }
+
+    function copyHintKey(ev, el) {
+        ev.stopPropagation();
+        copyPlainText(el.textContent);
+        clearTimeout(el._restoreTimer);
+        el.classList.add('copied');
+        el._restoreTimer = setTimeout(() => el.classList.remove('copied'), 1200);
+    }
+
+    function toggleHint(btn) {
+        const popup = btn.parentElement.querySelector('.hint-popup');
+        if (!popup) return;
+        const wasVisible = popup.classList.contains('visible');
+        document.querySelectorAll('.hint-popup.visible').forEach(p => p.classList.remove('visible'));
+        if (!wasVisible) popup.classList.add('visible');
+    }
+
+    document.addEventListener('click', e => {
+        if (!e.target.closest('.hint-wrap')) {
+            document.querySelectorAll('.hint-popup.visible').forEach(p => p.classList.remove('visible'));
+        }
+    });
+
+    // --- Util ---
+    function esc(str) {
+        const d = document.createElement('div');
+        d.textContent = str || '';
+        return d.innerHTML;
+    }
+    function escAttr(str) {
+        return (str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
+    }
+    </script>
+
+</body>
+</html>

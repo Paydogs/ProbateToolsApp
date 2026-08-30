@@ -9,6 +9,25 @@ function normalizeFraction(text) {
     return String(text === undefined || text === null ? '' : text).replace(/\s+/g, '');
 }
 
+// A fraction is two numbers, not a label: whether the document wrote "1 / 1" or
+// "1/1", it means Fraction(1, 1). The parts are kept so a caller can do
+// arithmetic without parsing the text again, and textVersion so it can be
+// printed without assembling it again. textVersion is stored rather than
+// computed on demand, so the object survives a round trip through JSON.
+function Fraction(numerator, denominator) {
+    return {
+        numerator: numerator,
+        denominator: denominator,
+        value: numerator / denominator,
+        textVersion: numerator + '/' + denominator
+    };
+}
+
+// Is this a Fraction rather than the plain text a field usually holds?
+function isFraction(value) {
+    return value !== null && typeof value === 'object' && typeof value.textVersion === 'string';
+}
+
 const FRACTION = /^(-?\d+)(?:\/(\d+))?$/;
 
 // Returns null for anything that is not a fraction, so a caller can tell
@@ -25,11 +44,7 @@ function parseFraction(text) {
     const denominator = match[2] === undefined ? 1 : parseInt(match[2], 10);
     if (!denominator) return null;
 
-    return {
-        numerator: numerator,
-        denominator: denominator,
-        value: numerator / denominator
-    };
+    return Fraction(numerator, denominator);
 }
 
 // Adds shares without reducing the result: 3/5 + 2/5 is 5/5, not 1/1 — the
@@ -55,11 +70,11 @@ function sumFractions(list) {
     const numerator = fractions.reduce(
         (total, f) => total + f.numerator * (denominator / f.denominator), 0);
 
-    return { numerator: numerator, denominator: denominator, value: numerator / denominator };
+    return Fraction(numerator, denominator);
 }
 
 function formatFraction(fraction) {
-    return fraction ? fraction.numerator + '/' + fraction.denominator : '';
+    return fraction ? fraction.textVersion : '';
 }
 
 // --- Order numbers ---

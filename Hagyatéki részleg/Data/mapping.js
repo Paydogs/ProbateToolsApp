@@ -1,78 +1,95 @@
 // --- Field mapping ---
-// Everything the app has to recognise by wording lives here, and nowhere else.
-// Each entry reads: "the string as it appears": theKeyItFeeds
-// Editing this file is enough to teach the app a new wording — no parser change.
+// Every wording the app has to recognise or show, and nowhere else:
+//
+//   FIELD_NAMES   what each property is called on screen
+//   PDF_LABELS    which line of the document fills which property, keyed by
+//                 property, so the two stand next to each other
+//
+// What the properties are — which ones make up a Vehicle or an Account — is in
+// models.js. Editing this file is enough to teach the app a new wording; no
+// parser change.
 
-// --- PDF labels ---
-// The label on the left is what the document writes; the key on the right is
-// the property it fills. Order matters: fields are shown in the order listed.
-// Listing a second label for a key makes it an alternative spelling — the
-// first one stays the one displayed.
+// --- Names ---
+// What each property is called on screen and in the field list.
 
-const JARMU_LABELS = {
-    'Rendszám': 'rendszam',
-    'Fajta': 'fajta',
-    'Gyártmány': 'gyarto',
-    'Típus': 'tipus',
-    'Kereskedelmi név': 'kereskedelminev',
-    'Alvázszám': 'alvazszam',
-    'Aktuális, utolsó forgalmi engedélyének száma': 'forgalmiszam',
-    'Törzskönyv száma': 'torzskonyvszam',
-    'Tözskönyv száma': 'torzskonyvszam',   // the authority's own typo, missing r
-    'Gyártási év': 'gyartasiev'
+const FIELD_NAMES = {
+    // jármű
+    rendszam: 'Rendszám',
+    fajta: 'Fajta',
+    gyarto: 'Gyártmány',
+    tipus: 'Típus',
+    kereskedelminev: 'Kereskedelmi név',
+    alvazszam: 'Alvázszám',
+    forgalmiszam: 'Aktuális, utolsó forgalmi engedélyének száma',
+    torzskonyvszam: 'Törzskönyv száma',
+    gyartasiev: 'Gyártási év',
+    jarmuertek: 'Jármű értéke (Ft)',
+
+    // számla és értékpapírszámla
+    _type: 'Számla fajtája',
+    banknev: 'A pénzintézet megnevezése',
+    eszkozTipus: 'Pénzügyi eszköz típusa',
+    azonosito: 'Azonosító',
+    jogosultsag: 'Az örökhagyó jogosultságának mértéke',
+    halalpiEgyenleg: 'Egyenleg az örökhagyó halálának napján',
+    valasznapiEgyenleg: 'Egyenleg a válaszadás napján',
+    orokresz: 'Halálkori egyenleg örökhagyóra eső része',
+    ertekpapirNev: 'Az értékpapír megnevezése',
+    darabszam: 'Halálkori darabszám',
+    forgalmiErtek: 'Halálkori forgalmi érték x Halálkori darabszám',
+
+    // ingatlan
+    cim: 'Cím',
+    megnevezes: 'Megnevezés',
+    ingatlanertek: 'Ingatlan értéke (Ft)',
+    sorszamlista: 'A látható tételek sorszámai',
+    osszhanyad: 'A látható tételek hányadainak összege',
+
+    // ingatlan tulajdoni tétel
+    sorszam: 'Sorszám',
+    jogallas: 'Jogállás',
+    tulajdoniHanyad: 'Tulajdoni hányad',
+    nev: 'Név'
 };
 
-// Not in the PDF — the appraised value is typed in by hand
-const JARMU_MANUAL_LABELS = {
-    'Jármű értéke (Ft)': 'jarmuertek'
-};
+// --- PDF wordings ---
+// Which line of the document fills which property: the property on the left,
+// the text the PDF writes on the right. More than one wording means the
+// document may word it either way — they all fill the same property.
+//
+// A property missing from here is not read off a label: it is typed in by
+// hand, calculated, read by position, or kept by the app for itself.
 
-const SZAMLA_LABELS = {
-    'A pénzintézet megnevezése': 'banknev',
-    'Pénzügyi eszköz típusa': 'eszkozTipus',
-    'Azonosító': 'azonosito',
-    'Az örökhagyó jogosultságának mértéke': 'jogosultsag',
-    'Egyenleg az örökhagyó halálának napján': 'halalpiEgyenleg',
-    'Egyenleg a válaszadás napján': 'valasznapiEgyenleg',
-    'Halálkori egyenleg örökhagyóra eső része': 'orokresz'
-};
+const PDF_LABELS = {
+    // jármű
+    rendszam: ['Rendszám'],
+    fajta: ['Fajta'],
+    gyarto: ['Gyártmány'],
+    tipus: ['Típus'],
+    kereskedelminev: ['Kereskedelmi név'],
+    alvazszam: ['Alvázszám'],
+    forgalmiszam: ['Aktuális, utolsó forgalmi engedélyének száma'],
+    torzskonyvszam: [
+        'Törzskönyv száma',
+        'Tözskönyv száma'          // the authority's own typo, missing r
+    ],
+    gyartasiev: ['Gyártási év'],
 
-// A securities account carries everything an account does, and these as well
-const ERTEKPAPIR_LABELS = {
-    'Az értékpapír megnevezése': 'ertekpapirNev',
-    'Halálkori darabszám': 'darabszam',
-    'Halálkori forgalmi érték x Halálkori darabszám': 'forgalmiErtek'
-};
+    // számla és értékpapírszámla
+    banknev: ['A pénzintézet megnevezése'],
+    eszkozTipus: ['Pénzügyi eszköz típusa'],
+    azonosito: ['Azonosító'],
+    jogosultsag: ['Az örökhagyó jogosultságának mértéke'],
+    halalpiEgyenleg: ['Egyenleg az örökhagyó halálának napján'],
+    valasznapiEgyenleg: ['Egyenleg a válaszadás napján'],
+    orokresz: ['Halálkori egyenleg örökhagyóra eső része'],
+    ertekpapirNev: ['Az értékpapír megnevezése'],
+    darabszam: ['Halálkori darabszám'],
+    forgalmiErtek: ['Halálkori forgalmi érték x Halálkori darabszám']
 
-// Real estate is read by position rather than by label, so these are the
-// names shown in the UI
-const INGATLAN_LABELS = {
-    'Cím': 'cim',
-    'Megnevezés': 'megnevezes'
+    // Az ingatlan tulajdoni lapját nem felirat, hanem elhelyezkedés alapján
+    // olvassuk, ezért annak a tételeihez itt nincs bejegyzés.
 };
-
-const INGATLAN_MANUAL_LABELS = {
-    'Ingatlan értéke (Ft)': 'ingatlanertek'
-};
-
-// Calculated properties — worked out from the entries, not read off the PDF
-const INGATLAN_COMPUTED_LABELS = {
-    'A látható tételek sorszámai': 'sorszamlista',
-    'A látható tételek hányadainak összege': 'osszhanyad'
-};
-
-const INGATLAN_TETEL_LABELS = {
-    'Sorszám': 'sorszam',
-    'Típus': 'tipus',
-    'Jogállás': 'jogallas',
-    'Tulajdoni hányad': 'tulajdoniHanyad',
-    'Név': 'nev'
-};
-
-// A ${name} a template writes on the left, the key it stands for on the right.
-// The key itself always works; these are the extra spellings. A name is only
-// looked up among the fields of the document at hand, so the same name may
-// mean different things for different document types.
 
 // --- PDF kinds ---
 // Which field sets belong to one kind of document. An institution's reply
@@ -85,6 +102,11 @@ const PDF_TYPES = {
 };
 
 // --- Template placeholder names ---
+// A ${name} a template writes on the left, the key it stands for on the right.
+// The key itself always works; these are the extra spellings. A name is only
+// looked up among the fields of the document at hand, so the same name may
+// mean different things for different document types.
+
 const PLACEHOLDER_ALIASES = {
     szamlatipus: 'eszkozTipus',
     szamlaszam: 'azonosito',

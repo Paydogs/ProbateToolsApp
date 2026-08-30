@@ -99,11 +99,8 @@ function runStyle(rPr) {
     const face = fonts && (fonts.getAttributeNS(DOCX_NS, 'ascii') || fonts.getAttributeNS(DOCX_NS, 'hAnsi'));
     if (face) css.push("font-family:'" + face + "'");
 
-    // Word rebuilds a highlight from mso-highlight. A plain background alone
-    // arrives as character shading, which the highlight button cannot clear —
-    // the fill then looks stuck to whoever pastes the text.
     const hl = wVal(rPr, 'highlight');
-    if (hl && hl !== 'none') css.push('background:' + hl, 'mso-highlight:' + hl);
+    if (hl && hl !== 'none') css.push('background-color:' + hl);
 
     const shd = directChild(rPr, 'shd');
     const fill = shd && shd.getAttributeNS(DOCX_NS, 'fill');
@@ -292,7 +289,7 @@ function convertTable(tbl) {
 // style. Without carrying that over, Word pastes everything in its own
 // default (Calibri) instead of the template's font.
 async function readDocDefaults(bytes) {
-    const defaults = { font: '', sizePt: 0 };
+    const defaults = { font: '', sizePt: 0, lang: 'hu-HU' };
     let xml;
     try {
         xml = await zipReadText(bytes, 'word/styles.xml');
@@ -301,6 +298,10 @@ async function readDocDefaults(bytes) {
     }
 
     const doc = new DOMParser().parseFromString(xml, 'application/xml');
+
+    const docDefaults = doc.getElementsByTagNameNS(DOCX_NS, 'docDefaults')[0];
+    const langEl = docDefaults && docDefaults.getElementsByTagNameNS(DOCX_NS, 'lang')[0];
+    if (langEl) defaults.lang = langEl.getAttributeNS(DOCX_NS, 'val') || defaults.lang;
 
     const styles = doc.getElementsByTagNameNS(DOCX_NS, 'style');
     for (let i = 0; i < styles.length; i++) {
@@ -350,15 +351,12 @@ async function docxToHtml(arrayBuffer) {
         }
     }
 
-    // The text is Hungarian whatever the template says. A .docx written on a
-    // Word set up in English carries en-US as its document default, and Word
-    // then proofs the pasted block as English — red underlines all the way
-    // through. mso-ansi-language is what Word itself writes for this.
-    const base = ['mso-ansi-language:HU'];
+    const base = [];
     if (defaults.font) base.push("font-family:'" + defaults.font + "',serif");
     if (defaults.sizePt) base.push('font-size:' + defaults.sizePt + 'pt');
 
-    const wrapped = '<div lang="hu-HU" style="' + base.join(';') + '">' + html + '</div>';
+    const wrapped = '<div lang="' + defaults.lang + '"' +
+        (base.length ? ' style="' + base.join(';') + '"' : '') + '>' + html + '</div>';
 
     return { html: wrapped, text: textParts.join('\n') };
 }

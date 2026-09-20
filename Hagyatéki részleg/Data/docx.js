@@ -99,8 +99,16 @@ function runStyle(rPr) {
     const face = fonts && (fonts.getAttributeNS(DOCX_NS, 'ascii') || fonts.getAttributeNS(DOCX_NS, 'hAnsi'));
     if (face) css.push("font-family:'" + face + "'");
 
+    // Word rebuilds a highlight from mso-highlight. A plain background alone
+    // arrives as character shading, which the highlight button cannot clear —
+    // the fill then looks stuck to whoever pastes the text.
+    // The highlight names are Word's own; all but this one happen to be CSS
+    // colours too, and an unknown name means no fill at all.
     const hl = wVal(rPr, 'highlight');
-    if (hl && hl !== 'none') css.push('background-color:' + hl);
+    if (hl && hl !== 'none') {
+        const color = hl === 'darkYellow' ? 'olive' : hl;
+        css.push('background:' + color, 'mso-highlight:' + color);
+    }
 
     const shd = directChild(rPr, 'shd');
     const fill = shd && shd.getAttributeNS(DOCX_NS, 'fill');
@@ -289,7 +297,7 @@ function convertTable(tbl) {
 // style. Without carrying that over, Word pastes everything in its own
 // default (Calibri) instead of the template's font.
 async function readDocDefaults(bytes) {
-    const defaults = { font: '', sizePt: 0, lang: 'hu-HU' };
+    const defaults = { font: '', sizePt: 0 };
     let xml;
     try {
         xml = await zipReadText(bytes, 'word/styles.xml');
@@ -298,10 +306,6 @@ async function readDocDefaults(bytes) {
     }
 
     const doc = new DOMParser().parseFromString(xml, 'application/xml');
-
-    const docDefaults = doc.getElementsByTagNameNS(DOCX_NS, 'docDefaults')[0];
-    const langEl = docDefaults && docDefaults.getElementsByTagNameNS(DOCX_NS, 'lang')[0];
-    if (langEl) defaults.lang = langEl.getAttributeNS(DOCX_NS, 'val') || defaults.lang;
 
     const styles = doc.getElementsByTagNameNS(DOCX_NS, 'style');
     for (let i = 0; i < styles.length; i++) {
@@ -351,12 +355,15 @@ async function docxToHtml(arrayBuffer) {
         }
     }
 
-    const base = [];
+    // The text is Hungarian whatever the template says. A .docx written on a
+    // Word set up in English carries en-US as its document default, and Word
+    // then proofs the pasted block as English — red underlines all the way
+    // through. mso-ansi-language is what Word itself writes for this.
+    const base = ['mso-ansi-language:HU'];
     if (defaults.font) base.push("font-family:'" + defaults.font + "',serif");
     if (defaults.sizePt) base.push('font-size:' + defaults.sizePt + 'pt');
 
-    const wrapped = '<div lang="' + defaults.lang + '"' +
-        (base.length ? ' style="' + base.join(';') + '"' : '') + '>' + html + '</div>';
+    const wrapped = '<div lang="hu-HU" style="' + base.join(';') + '">' + html + '</div>';
 
     return { html: wrapped, text: textParts.join('\n') };
 }

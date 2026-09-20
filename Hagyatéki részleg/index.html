@@ -17,7 +17,7 @@
         <div class="header-title">
             <span class="header-dot"></span>
             <h1>Hagyatéki Részleg</h1>
-            <span class="header-version mono">v2.1</span>
+            <span class="header-version mono">v2.2</span>
         </div>
         <div style="flex:1"></div>
         <div id="header-file" class="header-file mono" style="display:none;">
@@ -95,7 +95,7 @@
             </div>
 
             <div class="sidebar-spacer"></div>
-            <div class="sidebar-footer mono">v2.1</div>
+            <div class="sidebar-footer mono">v2.2</div>
         </aside>
 
         <main class="main">
@@ -161,6 +161,7 @@
     <script src="Data/pdftext.js"></script>
     <script src="Data/rtf.js"></script>
     <script src="Data/docx.js"></script>
+    <script src="Data/escape.js"></script>
     <script>
     // --- App State ---
     const state = {
@@ -242,6 +243,25 @@
     });
     pdfInput.addEventListener('change', e => { if (e.target.files[0]) handlePDF(e.target.files[0]); });
 
+    // A PDF that cannot be read or recognised must not leave the previous one
+    // on screen looking current: fall back to the empty state. Clearing
+    // pdf-input also lets the same file be picked again right away.
+    function resetDocument() {
+        state.fileName = null;
+        state.docType = null;
+        state.parsedData = null;
+        state.manual = {};
+        state._groups = null;
+        document.getElementById('file-info').style.display = 'none';
+        document.getElementById('header-file').style.display = 'none';
+        document.getElementById('content').style.display = 'none';
+        document.getElementById('welcome').style.display = 'flex';
+        document.getElementById('filter-input').value = '';
+        document.getElementById('groups-container').innerHTML = '';
+        document.getElementById('pinned-container').innerHTML = '';
+        document.getElementById('pdf-input').value = '';
+    }
+
     async function handlePDF(file) {
         state.fileName = file.name;
         try {
@@ -250,6 +270,7 @@
             const docType = detectDocumentType(text);
 
             if (!docType) {
+                resetDocument();
                 showTemplateStatus('Nem felismerhető dokumentum típus.', 'error');
                 return;
             }
@@ -264,6 +285,7 @@
             updateFileInfo();
             renderContent();
         } catch (err) {
+            resetDocument();
             showTemplateStatus('Hiba a PDF feldolgozásakor: ' + err.message, 'error');
         }
     }
@@ -793,7 +815,7 @@
                     html += '<span class="row-unit mono">kézi</span>';
                 } else {
                     html += '<span class="row-value mono">' + esc(row.value) + '</span>';
-                    html += '<button id="' + cid + '" class="btn-copy mono" onclick="copyField(this, \'' + escAttr(row.value) + '\')">copy</button>';
+                    html += '<button id="' + cid + '" class="btn-copy mono" onclick="copyField(this, \'' + escJsAttr(row.value) + '\')">copy</button>';
                 }
                 html += '</div>';
             });
@@ -964,7 +986,10 @@
                'xmlns:w="urn:schemas-microsoft-com:office:word" ' +
                'xmlns="http://www.w3.org/TR/REC-html40">' +
                '<head><meta charset="utf-8"></head>' +
-               '<body>' + body + '</body></html>';
+               // Everything copied is Hungarian; without this Word proofs the
+               // pasted text in whatever the template's Word was set up for
+               // and underlines all of it in red.
+               '<body lang="hu-HU" style="mso-ansi-language:HU">' + body + '</body></html>';
     }
 
     function copyRichText(html, plain) {
@@ -1065,9 +1090,6 @@
         const d = document.createElement('div');
         d.textContent = str || '';
         return d.innerHTML;
-    }
-    function escAttr(str) {
-        return (str || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/\n/g, '\\n');
     }
     </script>
 

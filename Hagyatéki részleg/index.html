@@ -17,7 +17,7 @@
         <div class="header-title">
             <span class="header-dot"></span>
             <h1>Hagyatéki Részleg</h1>
-            <span class="header-version mono">v2.2</span>
+            <span class="header-version mono">v2.3</span>
         </div>
         <div style="flex:1"></div>
         <div id="header-file" class="header-file mono" style="display:none;">
@@ -95,7 +95,7 @@
             </div>
 
             <div class="sidebar-spacer"></div>
-            <div class="sidebar-footer mono">v2.2</div>
+            <div class="sidebar-footer mono">v2.3</div>
         </aside>
 
         <main class="main">
@@ -115,10 +115,11 @@
                         <span class="main-subtitle" id="type-subtitle"></span>
                     </div>
                     <div class="main-header-actions">
-                        <span class="hint-wrap">
+                        <span class="hint-wrap" onmouseenter="hoverHint(this, true)" onmouseleave="hoverHint(this, false)">
                             <button class="btn-hint" onclick="toggleHint(this)" title="A dokumentum összes kulcsa">?</button>
                             <div class="hint-popup mono" id="hint-doc"></div>
                         </span>
+                        <button class="btn-template" onclick="previewAllFromTemplate()" onmouseenter="hoverPreviewAll(this)" onmouseleave="cancelHoverPreview(this)">Előnézet</button>
                         <button class="btn-primary" onclick="generateAllFromTemplate()">
                             <span id="fill-all-label">Sablon kitöltése</span>
                         </button>
@@ -151,6 +152,20 @@
                 title="Visszaállítás 100%-ra">100%</button>
     </div>
 
+    <!-- Sablon előnézet: a kitöltött sablont ugyanezen az oldalon mutatja -->
+    <div id="preview-overlay" class="preview-overlay" style="display:none;" onclick="if (event.target === this) closePreview()">
+        <div class="preview-dialog" onmouseenter="hoverDialog(true)" onmouseleave="hoverDialog(false)">
+            <div class="preview-head">
+                <span class="preview-title">Előnézet</span>
+                <span style="flex:1"></span>
+                <button class="preview-close mono" onclick="closePreview()" title="Bezárás (Esc)">✕</button>
+            </div>
+            <div class="preview-sheet-wrap">
+                <div id="preview-sheet" class="preview-sheet" lang="hu-HU"></div>
+            </div>
+        </div>
+    </div>
+
     <script src="Data/Dependencies/pdf.min.js"></script>
     <script src="Data/Dependencies/mammoth.browser.min.js"></script>
     <script src="Data/mapping.js"></script>
@@ -175,6 +190,9 @@
         templates: {},
         _groups: null,
         copiedTimer: null,
+        previewHover: false,
+        hoverOnBtn: false,
+        hoverOnDialog: false,
         zoom: 100
     };
 
@@ -792,12 +810,13 @@
             html += '<span class="group-badge mono">' + esc(group.badge) + '</span>';
             html += '<span class="group-title">' + esc(group.title) + '</span>';
             html += '<div class="group-spacer"></div>';
-            html += '<span class="hint-wrap">';
+            html += '<span class="hint-wrap" onmouseenter="hoverHint(this, true)" onmouseleave="hoverHint(this, false)">';
             html += '<button class="btn-hint" onclick="toggleHint(this)">?</button>';
             html += '<div class="hint-popup mono" id="hint-' + gi + '">' + buildHintText(group.type) + '</div>';
             html += '</span>';
             if (group.fillable !== false && group.templateBtn !== false) {
-                html += '<button class="btn-template" onclick="generateFromTemplate(' + gi + ')">Sablon kitöltése</button>';
+                html += '<button class="btn-template" onclick="previewFromTemplate(' + gi + ')" onmouseenter="hoverPreviewFromTemplate(this, ' + gi + ')" onmouseleave="cancelHoverPreview(this)">Előnézet</button>';
+                html += '<button class="btn-template btn-fill" onclick="generateFromTemplate(' + gi + ')">Sablon kitöltése</button>';
             }
             html += '</div>';
 
@@ -966,12 +985,100 @@
         showCopyFeedback(groupIndex);
     }
 
+    // --- Preview ---
+    // The same filled blocks the copy would produce, shown in a popup instead
+    // of on the clipboard: what will be pasted can be checked before pasting.
+    // A click pins it open; a steady hover opens it and letting the mouse
+    // leave the sheet closes it again. The delay keeps a passing cursor from
+    // flashing the popup.
+    function previewFromTemplate(groupIndex, hover) {
+        const group = state._groups && state._groups[groupIndex];
+        if (!group) return;
+        openPreview([buildFilledBlock(group)], hover);
+    }
+
+    function previewAllFromTemplate(hover) {
+        const groups = (state._groups || []).filter(g => g.fillable !== false);
+        if (!groups.length) return;
+        openPreview(groups.map(buildFilledBlock), hover);
+    }
+
+    // A hover-peek lives as long as the pointer is on the trigger or on the
+    // sheet. The backdrop is click-through in that mode, so the button under
+    // it keeps reporting enter/leave.
+    function hoverPreviewFromTemplate(btn, groupIndex) {
+        state.hoverOnBtn = true;
+        btn._previewTimer = setTimeout(() => previewFromTemplate(groupIndex, true), 350);
+    }
+
+    function hoverPreviewAll(btn) {
+        state.hoverOnBtn = true;
+        btn._previewTimer = setTimeout(() => previewAllFromTemplate(true), 350);
+    }
+
+    function cancelHoverPreview(btn) {
+        state.hoverOnBtn = false;
+        clearTimeout(btn._previewTimer);
+        maybeCloseHoverPreview();
+    }
+
+    function hoverDialog(inside) {
+        state.hoverOnDialog = inside;
+        if (!inside) maybeCloseHoverPreview();
+    }
+
+    // The delay bridges the gap while the pointer glides from button to sheet.
+    function maybeCloseHoverPreview() {
+        setTimeout(() => {
+            if (state.previewHover && !state.hoverOnBtn && !state.hoverOnDialog) closePreview();
+        }, 200);
+    }
+
+    // Joined exactly the way copyBlocks does, except a block without a loaded
+    // template shows its raw fields marked as such — on the clipboard that
+    // fallback is silent, here it should be noticed.
+    function previewBody(blocks) {
+        const last = blocks.length - 1;
+        return blocks.map((b, i) => {
+            const html = b.html
+                ? trimHtmlBlock(b.html)
+                : '<div><span style="color:#a33; font-size:12px;">Nincs betöltött sablon — nyers mezők:</span>' +
+                  '<pre style="white-space:pre-wrap; margin:4px 0 0;">' + esc(b.text) + '</pre></div>';
+            return i === last ? html : appendBlankPara(html);
+        }).join('');
+    }
+
+    // Same window: the sheet carries the template's inline styles, so the
+    // preview reads close to the paste. (mso-* CSS is dropped by the DOM —
+    // tab leaders and the like show only after pasting into Word.)
+    function openPreview(blocks, hover) {
+        state.previewHover = hover === true;
+        const overlay = document.getElementById('preview-overlay');
+        // click-through while hovering, so leaving the button can close it;
+        // click-opened (pinned), the backdrop closes on click as before
+        overlay.style.pointerEvents = state.previewHover ? 'none' : 'auto';
+        document.getElementById('preview-sheet').innerHTML = previewBody(blocks);
+        overlay.style.display = 'flex';
+    }
+
+    function closePreview() {
+        state.previewHover = false;
+        state.hoverOnDialog = false;
+        document.getElementById('preview-overlay').style.display = 'none';
+    }
+
+    document.addEventListener('keydown', e => {
+        if (e.key === 'Escape') closePreview();
+    });
+
     // One button for the whole document: every fillable entry, in order.
     function generateAllFromTemplate() {
         const groups = (state._groups || []).filter(g => g.fillable !== false);
         if (!groups.length) return;
         copyBlocks(groups.map(buildFilledBlock));
 
+        const btn = document.querySelector('.main-header-actions .btn-primary');
+        popFill(btn);
         const label = document.getElementById('fill-all-label');
         label.textContent = 'Vágólapra másolva';
         setTimeout(() => { label.textContent = 'Sablon kitöltése'; }, 1600);
@@ -1026,11 +1133,20 @@
         document.body.removeChild(ta);
     }
 
+    // The pop restarts on every press: remove, force a reflow, re-add.
+    function popFill(btn) {
+        if (!btn) return;
+        btn.classList.remove('btn-fill-pop');
+        void btn.offsetWidth;
+        btn.classList.add('btn-fill-pop');
+    }
+
     function showCopyFeedback(groupIndex) {
         const section = document.querySelector('[data-group="' + groupIndex + '"]');
         if (!section) return;
-        const btn = section.querySelector('.btn-template');
+        const btn = section.querySelector('.btn-fill');
         if (!btn) return;
+        popFill(btn);
         const orig = btn.textContent;
         btn.textContent = 'Másolva!';
         btn.style.borderColor = 'var(--ok)';
@@ -1071,17 +1187,35 @@
         el._restoreTimer = setTimeout(() => el.classList.remove('copied'), 1200);
     }
 
-    function toggleHint(btn) {
-        const popup = btn.parentElement.querySelector('.hint-popup');
+    // Hover opens the hint, leaving closes it; a click pins it open, so a key
+    // can still be clicked and copied without holding the mouse in place.
+    function hoverHint(wrap, inside) {
+        const popup = wrap.querySelector('.hint-popup');
         if (!popup) return;
-        const wasVisible = popup.classList.contains('visible');
-        document.querySelectorAll('.hint-popup.visible').forEach(p => p.classList.remove('visible'));
-        if (!wasVisible) popup.classList.add('visible');
+        if (inside) popup.classList.add('visible');
+        else if (!wrap._pinned) popup.classList.remove('visible');
+    }
+
+    function toggleHint(btn) {
+        const wrap = btn.parentElement;
+        const popup = wrap.querySelector('.hint-popup');
+        if (!popup) return;
+        const wasPinnedOpen = wrap._pinned && popup.classList.contains('visible');
+        document.querySelectorAll('.hint-wrap').forEach(w => {
+            w._pinned = false;
+            const p = w.querySelector('.hint-popup');
+            if (p) p.classList.remove('visible');
+        });
+        if (!wasPinnedOpen) { wrap._pinned = true; popup.classList.add('visible'); }
     }
 
     document.addEventListener('click', e => {
         if (!e.target.closest('.hint-wrap')) {
-            document.querySelectorAll('.hint-popup.visible').forEach(p => p.classList.remove('visible'));
+            document.querySelectorAll('.hint-wrap').forEach(w => {
+                w._pinned = false;
+                const p = w.querySelector('.hint-popup');
+                if (p) p.classList.remove('visible');
+            });
         }
     });
 

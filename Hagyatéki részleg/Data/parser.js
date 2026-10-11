@@ -188,6 +188,16 @@ function parseIngatlanMegnevezes(lines, part1Idx, part2Idx) {
     return '';
 }
 
+// The address is the line before the first block title of the copy: that is
+// part I ("I. RÉSZ"), but a copy that carries margin notes opens with the
+// széljegyzék block instead, and its entries would then pose as the address
+// — so the block title to read past is that one.
+function findRealEstateCim(lines, part1Idx) {
+    const szeljegyIdx = lines.findIndex(l => /^széljegyzék$/i.test(l));
+    const blockIdx = szeljegyIdx !== -1 ? szeljegyIdx : part1Idx;
+    return blockIdx > 0 ? lines[blockIdx - 1] : '';
+}
+
 function parseRealEstateData(text) {
     const cleanText = cleanRealEstateText(text);
     const lines = cleanText.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
@@ -196,7 +206,7 @@ function parseRealEstateData(text) {
     const result = { cim: '', megnevezes: '', items: [] };
 
     const part1Idx = lines.findIndex(l => l.includes('I. RÉSZ'));
-    if (part1Idx > 0) result.cim = lines[part1Idx - 1];
+    result.cim = findRealEstateCim(lines, part1Idx);
 
     const part2Idx = lines.findIndex(l => l.includes('II. RÉSZ'));
     result.megnevezes = parseIngatlanMegnevezes(lines, part1Idx, part2Idx);
